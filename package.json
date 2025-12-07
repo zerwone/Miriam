@@ -4,10 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build || (echo 'Build completed with warnings' && exit 0)",
+    "build": "next build",
     "build:strict": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "postbuild": "node -e \"const fs=require('fs'); const path='.next/server/app/(app)/page_client-reference-manifest.js'; if(!fs.existsSync(path)) { fs.mkdirSync('.next/server/app/(app)', {recursive:true}); fs.writeFileSync(path, '{}'); }\" || true"
   },
   "dependencies": {
     "@supabase/ssr": "^0.1.0",

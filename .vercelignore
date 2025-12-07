@@ -37,3 +37,6 @@ coverage
 *.tsbuildinfo
 .pnp
 .pnp.js
+
+# Build artifacts that cause issues
+.next/server/app/(app)/page_client-reference-manifest.js

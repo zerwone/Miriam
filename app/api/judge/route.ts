@@ -4,6 +4,7 @@ import type { OpenRouterMessage } from "@/lib/openrouter";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { chargeUser } from "@/lib/charge";
+import { hasEnoughCredits } from "@/lib/credits";
 import type { CompareResult, JudgeResult } from "@/lib/types";
 
 export const runtime = "edge";
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       prompt,
-      candidateModels = ["qwen/qwen-2.5-7b-instruct:free", "deepseek/deepseek-chat:free", "meta-llama/llama-3.2-3b-instruct:free"],
+      candidateModels = ["qwen/qwen-2.5-7b-instruct:free", "deepseek/deepseek-chat:free"],
       judgeModel = "deepseek/deepseek-chat:free",
       system,
       temperature = 0.7,
@@ -56,21 +57,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Charge credits before making API calls
-    const chargeResult = await chargeUser(user.id, "judge", candidateModels.length);
-
-    if (!chargeResult.success) {
+    // Step 1: Check if user has enough credits (read-only check)
+    const creditCheck = await hasEnoughCredits(user.id, "judge");
+    if (!creditCheck.hasEnough) {
       return NextResponse.json(
         {
-          error: chargeResult.error || "Insufficient credits",
-          credits_needed: chargeResult.credits_needed,
-          balance: chargeResult.balance,
+          error: "Insufficient credits",
+          credits_needed: creditCheck.creditsNeeded,
+          balance: creditCheck.balance,
         },
         { status: 402 }
       );
     }
 
-    // Step 1: Get responses from candidate models
+    // Step 2: Get responses from candidate models
     const messages: OpenRouterMessage[] = [];
     if (system) {
       messages.push({ role: "system", content: system });
@@ -91,9 +91,13 @@ export async function POST(request: NextRequest) {
 
         return {
           model,
-          output: normalized.text,
+          output: normalized.outputText,
           time_ms,
-          usage: normalized.usage,
+          usage: {
+            prompt_tokens: normalized.usage.input_tokens,
+            completion_tokens: normalized.usage.output_tokens,
+            total_tokens: normalized.usage.total_tokens,
+          },
         };
       } catch (error: any) {
         const time_ms = Date.now() - startTime;
@@ -117,13 +121,14 @@ export async function POST(request: NextRequest) {
     const successfulCandidates = candidates.filter((c) => !c.error);
 
     if (successfulCandidates.length === 0) {
+      // All candidates failed, do NOT charge credits
       return NextResponse.json(
         { error: "All candidate models failed" },
         { status: 500 }
       );
     }
 
-    // Step 2: Build judge prompt
+    // Step 3: Build judge prompt
     const judgePrompt = `You are an expert AI evaluator. Your task is to rank and critique the following AI model responses to the same user prompt.
 
 USER PROMPT:
@@ -164,8 +169,14 @@ Rank them from best (rank 1) to worst. Consider factors like:
 
 Return ONLY the JSON, no additional text.`;
 
-    // Step 3: Call judge model
-    let judgeResponse;
+    // Step 4: Call judge model
+    let judgeResponse: string;
+    let judgeUsage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } = {
+      prompt_tokens: 0,
+      completion_tokens: 0,
+      total_tokens: 0,
+    };
+    
     try {
       const judgeApiResponse = await callOpenRouterChat({
         model: judgeModel,
@@ -181,16 +192,22 @@ Return ONLY the JSON, no additional text.`;
       });
 
       const normalized = normalizeOpenRouterResponse(judgeApiResponse);
-      judgeResponse = normalized.text;
+      judgeResponse = normalized.outputText;
+      judgeUsage = {
+        prompt_tokens: normalized.usage.input_tokens,
+        completion_tokens: normalized.usage.output_tokens,
+        total_tokens: normalized.usage.total_tokens,
+      };
     } catch (error: any) {
       console.error("Judge model error:", error);
+      // If judge fails, do NOT charge credits
       return NextResponse.json(
         { error: `Judge model failed: ${error.message}` },
         { status: 500 }
       );
     }
 
-    // Parse judge response
+    // Step 5: Parse judge response
     let judgeResult;
     try {
       // Extract JSON from response (in case there's extra text)
@@ -232,11 +249,19 @@ Return ONLY the JSON, no additional text.`;
       judge_result: judgeResult,
     };
 
-    // Log usage
+    // Step 6: Only on success, charge credits
+    const chargeResult = await chargeUser(user.id, "judge");
+    if (!chargeResult.success) {
+      // Edge case: credits consumed between check and charge
+      console.error("Failed to charge credits after successful judge:", chargeResult.error);
+      // Still return results, but log the issue
+    }
+
+    // Step 7: Log usage
     const adminClient = createAdminClient();
     const allModels = [...candidateModels, judgeModel];
-    const totalTokensIn = candidates.reduce((sum, c) => sum + c.usage.prompt_tokens, 0);
-    const totalTokensOut = candidates.reduce((sum, c) => sum + c.usage.completion_tokens, 0);
+    const totalTokensIn = candidates.reduce((sum, c) => sum + (c.usage?.prompt_tokens || 0), 0) + judgeUsage.prompt_tokens;
+    const totalTokensOut = candidates.reduce((sum, c) => sum + (c.usage?.completion_tokens || 0), 0) + judgeUsage.completion_tokens;
 
     await adminClient.from("usage_log").insert({
       user_id: user.id,
@@ -245,6 +270,10 @@ Return ONLY the JSON, no additional text.`;
       model_ids_used: allModels,
       tokens_in: totalTokensIn,
       tokens_out: totalTokensOut,
+      meta: {
+        candidate_count: candidateModels.length,
+        successful_candidates: successfulCandidates.length,
+      },
     });
 
     return NextResponse.json(result);

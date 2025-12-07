@@ -4,6 +4,7 @@ import type { OpenRouterMessage } from "@/lib/openrouter";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { chargeUser } from "@/lib/charge";
+import { hasEnoughCredits } from "@/lib/credits";
 import type { ResearchResult } from "@/lib/types";
 
 export const runtime = "edge";
@@ -22,6 +23,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
+      );
+    }
+
+    // Get user's plan to enforce Research Panel lock for free users
+    const adminClient = createAdminClient();
+    const { data: wallet } = await adminClient
+      .from("user_wallet")
+      .select("subscription_plan")
+      .eq("user_id", user.id)
+      .single();
+
+    if (!wallet) {
+      return NextResponse.json(
+        { error: "Wallet not found" },
+        { status: 404 }
+      );
+    }
+
+    // Lock Research Panel for free users
+    if (wallet.subscription_plan === "free") {
+      return NextResponse.json(
+        {
+          error: "Research Panel is only available for Starter and Pro plans",
+          code: "PLAN_TOO_LOW",
+        },
+        { status: 403 }
       );
     }
 
@@ -48,21 +75,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Charge credits before making API calls
-    const chargeResult = await chargeUser(user.id, "research", expertModels.length);
-
-    if (!chargeResult.success) {
+    // Step 1: Check if user has enough credits (read-only check)
+    const creditCheck = await hasEnoughCredits(user.id, "research");
+    if (!creditCheck.hasEnough) {
       return NextResponse.json(
         {
-          error: chargeResult.error || "Insufficient credits",
-          credits_needed: chargeResult.credits_needed,
-          balance: chargeResult.balance,
+          error: "Insufficient credits",
+          credits_needed: creditCheck.creditsNeeded,
+          balance: creditCheck.balance,
         },
         { status: 402 }
       );
     }
 
-    // Step 1: Get expert reports with different system prompts
+    // Step 2: Get expert reports with different system prompts
     const expertSystemPrompts = [
       "You are a technical expert. Provide a detailed, technical analysis focusing on facts, data, and implementation details.",
       "You are a creative strategist. Provide innovative ideas, alternative perspectives, and strategic recommendations.",
@@ -89,9 +115,18 @@ export async function POST(request: NextRequest) {
 
         return {
           model,
-          report: normalized.text,
-          usage: normalized.usage,
+          report: normalized.outputText,
+          usage: {
+            prompt_tokens: normalized.usage.input_tokens,
+            completion_tokens: normalized.usage.output_tokens,
+            total_tokens: normalized.usage.total_tokens,
+          },
           error: undefined,
+        } as {
+          model: string;
+          report: string;
+          usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
+          error?: string;
         };
       } catch (error: any) {
         const time_ms = Date.now() - startTime;
@@ -114,13 +149,14 @@ export async function POST(request: NextRequest) {
     const successfulReports = expertReports.filter((r) => !r.error);
 
     if (successfulReports.length === 0) {
+      // All experts failed, do NOT charge credits
       return NextResponse.json(
         { error: "All expert models failed" },
         { status: 500 }
       );
     }
 
-    // Step 2: Synthesize reports
+    // Step 3: Synthesize reports
     const synthesisPrompt = `You are a research synthesizer. Your task is to merge and synthesize multiple expert reports on the same question.
 
 RESEARCH QUESTION:
@@ -151,7 +187,13 @@ Format your response as JSON:
 
 Return ONLY the JSON, no additional text.`;
 
-    let synthesizedReport;
+    let synthesizedReport: { content: string; follow_up_questions: string[] };
+    let synthesisUsage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } = {
+      prompt_tokens: 0,
+      completion_tokens: 0,
+      total_tokens: 0,
+    };
+    
     try {
       const synthesisResponse = await callOpenRouterChat({
         model: synthesizerModel,
@@ -167,7 +209,12 @@ Return ONLY the JSON, no additional text.`;
       });
 
       const normalized = normalizeOpenRouterResponse(synthesisResponse);
-      const jsonMatch = normalized.text.match(/\{[\s\S]*\}/);
+      synthesisUsage = {
+        prompt_tokens: normalized.usage.input_tokens,
+        completion_tokens: normalized.usage.output_tokens,
+        total_tokens: normalized.usage.total_tokens,
+      };
+      const jsonMatch = normalized.outputText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         synthesizedReport = JSON.parse(jsonMatch[0]);
       } else {
@@ -175,17 +222,11 @@ Return ONLY the JSON, no additional text.`;
       }
     } catch (error: any) {
       console.error("Synthesis error:", error);
-      // Fallback synthesis
-      synthesizedReport = {
-        content: successfulReports
-          .map((r, idx) => `Expert ${idx + 1} (${r.model}):\n${r.report}`)
-          .join("\n\n---\n\n"),
-        follow_up_questions: [
-          "What are the key implications of these findings?",
-          "How can these insights be applied in practice?",
-          "What are the potential limitations or risks?",
-        ],
-      };
+      // If synthesis fails, do NOT charge credits
+      return NextResponse.json(
+        { error: `Synthesis failed: ${error.message}` },
+        { status: 500 }
+      );
     }
 
     const result: ResearchResult = {
@@ -198,18 +239,25 @@ Return ONLY the JSON, no additional text.`;
         content: synthesizedReport.content || "Synthesis failed",
         follow_up_questions: synthesizedReport.follow_up_questions || [],
         usage: {
-          prompt_tokens: 0, // Will be calculated from synthesis call
-          completion_tokens: 0,
-          total_tokens: 0,
+          prompt_tokens: synthesisUsage.prompt_tokens,
+          completion_tokens: synthesisUsage.completion_tokens,
+          total_tokens: synthesisUsage.total_tokens,
         },
       },
     };
 
-    // Log usage
-    const adminClient = createAdminClient();
+    // Step 4: Only on success, charge credits
+    const chargeResult = await chargeUser(user.id, "research");
+    if (!chargeResult.success) {
+      // Edge case: credits consumed between check and charge
+      console.error("Failed to charge credits after successful research:", chargeResult.error);
+      // Still return results, but log the issue
+    }
+
+    // Step 5: Log usage
     const allModels = [...expertModels, synthesizerModel];
-    const totalTokensIn = expertReports.reduce((sum, r) => sum + r.usage.prompt_tokens, 0);
-    const totalTokensOut = expertReports.reduce((sum, r) => sum + r.usage.completion_tokens, 0);
+    const totalTokensIn = expertReports.reduce((sum, r) => sum + r.usage.prompt_tokens, 0) + synthesisUsage.prompt_tokens;
+    const totalTokensOut = expertReports.reduce((sum, r) => sum + r.usage.completion_tokens, 0) + synthesisUsage.completion_tokens;
 
     await adminClient.from("usage_log").insert({
       user_id: user.id,
@@ -218,6 +266,10 @@ Return ONLY the JSON, no additional text.`;
       model_ids_used: allModels,
       tokens_in: totalTokensIn,
       tokens_out: totalTokensOut,
+      meta: {
+        expert_count: expertModels.length,
+        successful_experts: successfulReports.length,
+      },
     });
 
     return NextResponse.json(result);

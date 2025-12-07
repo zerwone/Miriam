@@ -3,11 +3,10 @@
  * Shared logic for charging users credits
  */
 
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   calculateCreditsNeeded,
-  hasEnoughCredits,
+  hasEnoughCredits as checkEnoughCredits,
   calculateDeduction,
   type WalletBalance,
 } from "@/lib/wallet";
@@ -25,13 +24,17 @@ export interface ChargeResult {
  * Charge user credits for an action
  * Returns success/failure and updated balance
  */
+/**
+ * Charge user credits for an action
+ * This should ONLY be called AFTER a successful LLM call
+ * Returns success/failure and updated balance
+ */
 export async function chargeUser(
   userId: string,
-  mode: Mode,
-  modelCount: number = 1
+  mode: Mode
 ): Promise<ChargeResult> {
   try {
-    const creditsNeeded = calculateCreditsNeeded(mode, modelCount);
+    const creditsNeeded = calculateCreditsNeeded(mode);
 
     // Get current wallet balance using admin client
     const adminClient = createAdminClient();
@@ -78,7 +81,7 @@ export async function chargeUser(
     };
 
     // Check if user has enough credits
-    if (!hasEnoughCredits(balance, creditsNeeded)) {
+    if (!checkEnoughCredits(balance, creditsNeeded)) {
       return {
         success: false,
         error: "Insufficient credits",

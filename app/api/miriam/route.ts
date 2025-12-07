@@ -4,6 +4,8 @@ import type { OpenRouterMessage } from "@/lib/openrouter";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { chargeUser } from "@/lib/charge";
+import { hasEnoughCredits } from "@/lib/credits";
+import { MIRIAM_SYSTEM_PROMPT } from "@/lib/miriamPrompt";
 
 export const runtime = "edge";
 
@@ -34,26 +36,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Charge credits before making the API call
-    const chargeResult = await chargeUser(user.id, "miriam", 1);
-
-    if (!chargeResult.success) {
+    // Step 1: Check if user has enough credits (read-only check)
+    const creditCheck = await hasEnoughCredits(user.id, "miriam");
+    if (!creditCheck.hasEnough) {
       return NextResponse.json(
         {
-          error: chargeResult.error || "Insufficient credits",
-          credits_needed: chargeResult.credits_needed,
-          balance: chargeResult.balance,
+          error: "Insufficient credits",
+          credits_needed: creditCheck.creditsNeeded,
+          balance: creditCheck.balance,
         },
         { status: 402 }
       );
     }
 
-    // Convert messages to OpenRouter format
+    // Step 2: Convert messages to OpenRouter format and inject Miriam persona
     const openRouterMessages: OpenRouterMessage[] = messages.map((msg: any) => ({
       role: msg.role,
       content: msg.content,
     }));
 
+    // Inject Miriam persona system prompt if no system message exists
+    const hasSystemMessage = openRouterMessages.some((m) => m.role === "system");
+    if (!hasSystemMessage) {
+      openRouterMessages.unshift({
+        role: "system",
+        content: MIRIAM_SYSTEM_PROMPT,
+      });
+    }
+
+    // Step 3: Call OpenRouter
     const startTime = Date.now();
     let response;
     let normalized;
@@ -69,25 +80,42 @@ export async function POST(request: NextRequest) {
       time_ms = Date.now() - startTime;
       normalized = normalizeOpenRouterResponse(response);
     } catch (error: any) {
-      // If OpenRouter call fails, we should refund credits
-      // For now, we'll just log the error
-      console.error("OpenRouter call failed after charging:", error);
-      throw error;
+      // If OpenRouter call fails, do NOT charge credits
+      console.error("OpenRouter call failed:", error);
+      return NextResponse.json(
+        { error: error.message || "LLM call failed" },
+        { status: 500 }
+      );
     }
 
-    // Log usage
+    // Step 4: Only on success, charge credits
+    const chargeResult = await chargeUser(user.id, "miriam");
+    if (!chargeResult.success) {
+      // Edge case: credits consumed between check and charge
+      console.error("Failed to charge credits after successful LLM call:", chargeResult.error);
+      // Still return the result, but log the issue
+    }
+
+    // Step 5: Log usage
     const adminClient = createAdminClient();
     await adminClient.from("usage_log").insert({
       user_id: user.id,
       mode: "miriam",
       credits_spent: 1,
       model_ids_used: [model],
-      tokens_in: normalized.usage.prompt_tokens,
-      tokens_out: normalized.usage.completion_tokens,
+      tokens_in: normalized.usage.input_tokens,
+      tokens_out: normalized.usage.output_tokens,
+      meta: {},
     });
 
     return NextResponse.json({
-      ...normalized,
+      text: normalized.outputText,
+      model: normalized.rawModelId,
+      usage: {
+        prompt_tokens: normalized.usage.input_tokens,
+        completion_tokens: normalized.usage.output_tokens,
+        total_tokens: normalized.usage.total_tokens,
+      },
       time_ms,
     });
   } catch (error: any) {

@@ -27,16 +27,16 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { mode, modelCount = 1 } = body;
+    const { mode } = body;
 
-    if (!mode || !["miriam", "compare", "judge", "research"].includes(mode)) {
+    if (!mode || !["miriam", "compare3", "compare5", "judge", "research"].includes(mode)) {
       return NextResponse.json(
         { error: "Invalid mode" },
         { status: 400 }
       );
     }
 
-    const result = await chargeUser(user.id, mode as Mode, modelCount);
+    const result = await chargeUser(user.id, mode as Mode);
 
     if (!result.success) {
       return NextResponse.json(

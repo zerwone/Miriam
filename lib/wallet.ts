@@ -16,21 +16,21 @@ export interface WalletBalance {
 /**
  * Calculate credits needed for a given mode and model count
  */
-export function calculateCreditsNeeded(
-  mode: Mode,
-  modelCount: number = 1
-): number {
+/**
+ * Calculate credits needed for a given mode
+ * Mode keys: "miriam" (1), "compare3" (3), "compare5" (5), "judge" (6), "research" (10)
+ */
+export function calculateCreditsNeeded(mode: Mode): number {
   switch (mode) {
     case "miriam":
       return 1;
-    case "compare":
-      // 3 credits for up to 3 models, 5 credits for up to 5 models
-      return modelCount <= 3 ? 3 : 5;
+    case "compare3":
+      return 3;
+    case "compare5":
+      return 5;
     case "judge":
-      // 3 candidate models + 1 judge model
       return 6;
     case "research":
-      // Multiple experts + synthesizer
       return 10;
     default:
       return 0;

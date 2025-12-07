@@ -91,23 +91,33 @@ export async function callOpenRouterChat(
 }
 
 /**
- * Normalizes OpenRouter response to a simple text output
+ * Normalized OpenRouter response type
+ * Uses consistent internal naming (can differ from spec but must be consistent)
+ */
+export interface NormalizedOpenRouterResponse {
+  outputText: string;
+  rawModelId: string;
+  usage: {
+    input_tokens: number;
+    output_tokens: number;
+    total_tokens: number;
+  };
+}
+
+/**
+ * Normalizes OpenRouter response to a consistent internal format
  */
 export function normalizeOpenRouterResponse(
   response: OpenRouterResponse
-): {
-  text: string;
-  model: string;
-  usage: {
-    prompt_tokens: number;
-    completion_tokens: number;
-    total_tokens: number;
-  };
-} {
+): NormalizedOpenRouterResponse {
   const message = response.choices[0]?.message?.content || "";
   return {
-    text: message,
-    model: response.model,
-    usage: response.usage,
+    outputText: message,
+    rawModelId: response.model,
+    usage: {
+      input_tokens: response.usage.prompt_tokens,
+      output_tokens: response.usage.completion_tokens,
+      total_tokens: response.usage.total_tokens,
+    },
   };
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { CompareResult } from "@/lib/types";
 import { ShareButton } from "@/components/ShareButton";
 import { TemplateSelector } from "@/components/TemplateSelector";
@@ -25,11 +25,27 @@ export default function ComparePage() {
     { value: "openai/gpt-4o-mini", label: "GPT-4o Mini" },
   ];
 
+  const [userPlan, setUserPlan] = useState<"free" | "starter" | "pro" | null>(null);
+
+  useEffect(() => {
+    // Fetch user plan to enforce frontend limits
+    fetch("/api/me/wallet")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.balance) {
+          setUserPlan(data.balance.subscription_plan);
+        }
+      })
+      .catch(console.error);
+  }, []);
+
+  const maxModels = userPlan === "free" ? 3 : 5;
+
   const toggleModel = (model: string) => {
     setSelectedModels((prev) => {
       if (prev.includes(model)) {
         return prev.filter((m) => m !== model);
-      } else if (prev.length < 5) {
+      } else if (prev.length < maxModels) {
         return [...prev, model];
       }
       return prev;
@@ -132,7 +148,12 @@ export default function ComparePage() {
 
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Select Models (up to 5)
+            Select Models (up to {maxModels})
+            {userPlan === "free" && (
+              <span className="ml-2 text-xs text-orange-600 dark:text-orange-400">
+                (Free plan limited to 3 models)
+              </span>
+            )}
           </label>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
             {availableModels.map((model) => (
@@ -148,7 +169,7 @@ export default function ComparePage() {
                   type="checkbox"
                   checked={selectedModels.includes(model.value)}
                   onChange={() => toggleModel(model.value)}
-                  disabled={!selectedModels.includes(model.value) && selectedModels.length >= 5}
+                  disabled={!selectedModels.includes(model.value) && selectedModels.length >= maxModels}
                   className="mr-2"
                 />
                 <span className="text-sm text-gray-900 dark:text-gray-100">

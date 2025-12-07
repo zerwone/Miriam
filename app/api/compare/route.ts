@@ -5,6 +5,8 @@ import type { CompareResult } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { chargeUser } from "@/lib/charge";
+import { hasEnoughCredits } from "@/lib/credits";
+import type { Mode } from "@/lib/types";
 
 export const runtime = "edge";
 
@@ -55,28 +57,57 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Charge credits before making API calls
-    const chargeResult = await chargeUser(user.id, "compare", models.length);
+    // Get user's plan to enforce model limits
+    const adminClient = createAdminClient();
+    const { data: wallet } = await adminClient
+      .from("user_wallet")
+      .select("subscription_plan")
+      .eq("user_id", user.id)
+      .single();
 
-    if (!chargeResult.success) {
+    if (!wallet) {
+      return NextResponse.json(
+        { error: "Wallet not found" },
+        { status: 404 }
+      );
+    }
+
+    // Enforce plan-based model limits
+    const maxModels = wallet.subscription_plan === "free" ? 3 : 5;
+    if (models.length > maxModels) {
       return NextResponse.json(
         {
-          error: chargeResult.error || "Insufficient credits",
-          credits_needed: chargeResult.credits_needed,
-          balance: chargeResult.balance,
+          error: `Free plan is limited to 3 models. Upgrade to compare up to 5 models.`,
+          code: "PLAN_LIMIT_EXCEEDED",
+        },
+        { status: 403 }
+      );
+    }
+
+    // Determine credit mode based on model count
+    const creditMode: Mode = models.length <= 3 ? "compare3" : "compare5";
+
+    // Step 1: Check if user has enough credits (read-only check)
+    const creditCheck = await hasEnoughCredits(user.id, creditMode);
+    if (!creditCheck.hasEnough) {
+      return NextResponse.json(
+        {
+          error: "Insufficient credits",
+          credits_needed: creditCheck.creditsNeeded,
+          balance: creditCheck.balance,
         },
         { status: 402 }
       );
     }
 
-    // Build messages array
+    // Step 2: Build messages array
     const messages: OpenRouterMessage[] = [];
     if (system) {
       messages.push({ role: "system", content: system });
     }
     messages.push({ role: "user", content: prompt });
 
-    // Run all models in parallel
+    // Step 3: Call OpenRouter for all models in parallel
     const promises = models.map(async (model: string): Promise<CompareResult> => {
       const startTime = Date.now();
       try {
@@ -91,9 +122,13 @@ export async function POST(request: NextRequest) {
 
         return {
           model,
-          output: normalized.text,
+          output: normalized.outputText,
           time_ms,
-          usage: normalized.usage,
+          usage: {
+            prompt_tokens: normalized.usage.input_tokens,
+            completion_tokens: normalized.usage.output_tokens,
+            total_tokens: normalized.usage.total_tokens,
+          },
         };
       } catch (error: any) {
         const time_ms = Date.now() - startTime;
@@ -113,8 +148,25 @@ export async function POST(request: NextRequest) {
 
     const results = await Promise.all(promises);
 
-    // Log usage
-    const adminClient = createAdminClient();
+    // Check if all models failed
+    const successfulResults = results.filter((r) => !r.error);
+    if (successfulResults.length === 0) {
+      // All models failed, do NOT charge credits
+      return NextResponse.json(
+        { error: "All models failed to respond" },
+        { status: 500 }
+      );
+    }
+
+    // Step 4: Only on success, charge credits
+    const chargeResult = await chargeUser(user.id, creditMode);
+    if (!chargeResult.success) {
+      // Edge case: credits consumed between check and charge
+      console.error("Failed to charge credits after successful LLM calls:", chargeResult.error);
+      // Still return results, but log the issue
+    }
+
+    // Step 5: Log usage
     const creditsSpent = models.length <= 3 ? 3 : 5;
     const totalTokensIn = results.reduce((sum, r) => sum + r.usage.prompt_tokens, 0);
     const totalTokensOut = results.reduce((sum, r) => sum + r.usage.completion_tokens, 0);
@@ -126,6 +178,11 @@ export async function POST(request: NextRequest) {
       model_ids_used: models,
       tokens_in: totalTokensIn,
       tokens_out: totalTokensOut,
+      meta: {
+        model_count: models.length,
+        successful_count: successfulResults.length,
+        failed_count: results.length - successfulResults.length,
+      },
     });
 
     return NextResponse.json({ results });

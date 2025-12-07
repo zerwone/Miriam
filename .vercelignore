@@ -1,0 +1,39 @@
+# Dependencies
+node_modules
+
+# Build outputs
+.next
+out
+dist
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Development files
+*.log
+.DS_Store
+
+# Documentation (optional - remove if you want to deploy docs)
+*.md
+!README.md
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Testing
+coverage
+.nyc_output
+
+# Misc
+*.tsbuildinfo
+.pnp
+.pnp.js

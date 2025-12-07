@@ -1,87 +1,104 @@
 # Miriam Lab
 
-An AI playground where users can chat with AI models, compare multiple models side-by-side, use Judge mode to rank responses, and leverage a Research Panel for collaborative analysis.
+**One prompt. Many minds.**
+
+Miriam Lab is a multi-model AI playground where you can chat, compare, judge, and research with multiple AI models side-by-side.
 
 ## Features
 
-### Phase A (Current)
-- ✅ **Miriam Chat**: Single-model chat interface
-- ✅ **Compare Mode**: Side-by-side comparison of up to 5 models
-- ✅ OpenRouter integration with error handling
-
-### Coming Soon
-- **Judge Mode**: AI judge ranks and critiques model responses
-- **Research Panel**: Multiple expert models + synthesizer
-- **Credit System**: Hybrid subscription + usage-based pricing
-- **User Accounts**: Supabase authentication and wallet management
-- **Billing**: Stripe integration for subscriptions and top-ups
+- **Miriam Chat**: Single-model chat with a friendly AI assistant
+- **Compare Mode**: Test the same prompt across multiple models simultaneously
+- **Judge Mode**: Let an AI judge rank and critique model responses
+- **Research Panel**: Multi-expert research team with synthesis (Starter/Pro only)
 
 ## Tech Stack
 
-- **Frontend/Backend**: Next.js 14 (App Router) + React + TypeScript
-- **Styling**: Tailwind CSS
+- **Frontend**: Next.js 14 (App Router), React, Tailwind CSS
+- **Backend**: Next.js API Routes (Edge Runtime)
+- **Database**: Supabase (PostgreSQL)
+- **Auth**: Supabase Auth
 - **LLM Provider**: OpenRouter
-- **Database/Auth**: Supabase (to be configured in Phase B)
-- **Billing**: Stripe (to be configured in Phase D)
+- **Billing**: Stripe
+- **Hosting**: Vercel
 
-## Getting Started
+## Quick Start
 
-1. **Install dependencies**:
+### Prerequisites
+
+- Node.js 18+ and npm
+- Supabase account
+- OpenRouter API key
+- Stripe account (for billing)
+
+### Local Development
+
+1. Clone the repository:
+   ```bash
+   git clone <your-repo-url>
+   cd miriam-lab
+   ```
+
+2. Install dependencies:
    ```bash
    npm install
    ```
 
-2. **Set up environment variables**:
+3. Set up environment variables:
    ```bash
    cp .env.example .env.local
    ```
-   Then edit `.env.local` and add your OpenRouter API key:
-   ```
-   OPENROUTER_API_KEY=your_key_here
-   ```
+   Fill in your values in `.env.local`
 
-3. **Run the development server**:
+4. Set up Supabase:
+   - Create a new Supabase project
+   - Run migrations in order:
+     - `supabase/migrations/001_initial_schema.sql`
+     - `supabase/migrations/002_shared_results.sql`
+     - `supabase/migrations/003_add_usage_log_meta.sql`
+     - `supabase/migrations/004_user_sessions.sql`
+
+5. Run the development server:
    ```bash
    npm run dev
    ```
 
-4. **Open your browser**:
-   Navigate to [http://localhost:3000](http://localhost:3000)
+6. Open [http://localhost:3000](http://localhost:3000)
+
+## Deployment
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment instructions to Vercel.
 
 ## Project Structure
 
 ```
-/app
-  /api
-    /miriam        # Single-model chat endpoint
-    /compare       # Multi-model comparison endpoint
-  /app
-    page.tsx       # Miriam Chat UI
-    /compare       # Compare Mode UI
-    /judge         # Judge Mode UI (coming soon)
-    /research      # Research Panel UI (coming soon)
-/lib
-  openrouter.ts   # OpenRouter API client
-  types.ts        # Shared TypeScript types
+miriam-lab/
+├── app/                    # Next.js App Router
+│   ├── (app)/             # Main application routes
+│   ├── api/               # API routes
+│   ├── auth/              # Authentication pages
+│   └── page.tsx           # Landing page
+├── components/             # React components
+├── lib/                    # Utilities and helpers
+│   ├── supabase/          # Supabase clients
+│   ├── openrouter.ts      # OpenRouter integration
+│   ├── stripe.ts          # Stripe configuration
+│   └── wallet.ts          # Credit system logic
+├── public/                 # Static assets
+├── supabase/
+│   └── migrations/        # Database migrations
+└── vercel.json            # Vercel configuration
 ```
 
-## Development Phases
+## Environment Variables
 
-- **Phase A** (Weeks 1-2): Foundation - Miriam Chat + Compare ✅
-- **Phase B** (Weeks 3-4): Accounts & Wallet
-- **Phase C** (Weeks 5-7): Advanced modes (Judge + Research)
-- **Phase D** (Weeks 8-9): Billing & Plans
-- **Phase E** (Weeks 10-11): Observability & Analytics
-- **Phase F** (Weeks 12+): Growth features
+See `.env.example` for all required environment variables.
 
-## Credits System (Planned)
+## Documentation
 
-- **Miriam chat**: 1 credit per message
-- **Compare (3 models)**: 3 credits
-- **Compare (5 models)**: 5 credits
-- **Judge mode**: 6 credits
-- **Research panel**: 10 credits
+- [DEPLOYMENT.md](./DEPLOYMENT.md) - Deployment guide
+- [BRANDING.md](./BRANDING.md) - Brand guidelines and design tokens
+- [COMPLIANCE_REPORT.md](./COMPLIANCE_REPORT.md) - Spec compliance details
 
 ## License
 
-MIT
+Private - All rights reserved

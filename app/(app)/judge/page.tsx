@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { JudgeResult } from "@/lib/types";
+import { ShareButton } from "@/components/ShareButton";
 
 export const dynamic = "force-dynamic";
 
@@ -180,12 +181,14 @@ export default function JudgePage() {
 
       {result && (
         <div className="space-y-6">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
               Judge Results
             </h2>
+            <ShareButton mode="judge" results={result} />
+          </div>
 
-            {/* Ranking Display */}
+          {/* Ranking Display */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                 Ranking
@@ -300,7 +303,6 @@ export default function JudgePage() {
               </div>
             </div>
           </div>
-        </div>
       )}
     </div>
   );

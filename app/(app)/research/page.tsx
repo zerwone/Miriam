@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { ResearchResult } from "@/lib/types";
+import { ShareButton } from "@/components/ShareButton";
 
 export const dynamic = "force-dynamic";
 
@@ -173,11 +174,14 @@ export default function ResearchPage() {
         <div className="space-y-6">
           {/* Synthesized Report */}
           <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg shadow-lg p-6 border-2 border-blue-200 dark:border-blue-800">
-            <div className="flex items-center gap-2 mb-4">
-              <span className="text-2xl">📊</span>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                Synthesized Report
-              </h2>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">📊</span>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  Synthesized Report
+                </h2>
+              </div>
+              <ShareButton mode="research" results={result} />
             </div>
             <div className="prose dark:prose-invert max-w-none">
               <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">

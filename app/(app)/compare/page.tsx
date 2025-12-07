@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import type { CompareResult } from "@/lib/types";
+import { ShareButton } from "@/components/ShareButton";
+import { TemplateSelector } from "@/components/TemplateSelector";
+import type { Template } from "@/lib/templates";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +71,9 @@ export default function ComparePage() {
       if ((window as any).refreshCredits) {
         (window as any).refreshCredits();
       }
+      
+      // Store result for sharing
+      (window as any).lastCompareResult = data.results;
     } catch (error: any) {
       console.error("Error:", error);
       alert(`Error: ${error.message}`);
@@ -88,6 +94,16 @@ export default function ComparePage() {
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 space-y-4">
+        <div className="flex justify-end">
+          <TemplateSelector
+            mode="compare"
+            onSelect={(template: Template) => {
+              setPrompt(template.prompt);
+              if (template.system) setSystem(template.system);
+              if (template.defaultModels) setSelectedModels(template.defaultModels);
+            }}
+          />
+        </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             System Prompt (optional)
@@ -154,9 +170,12 @@ export default function ComparePage() {
 
       {results.length > 0 && (
         <div className="space-y-4">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Results
-          </h2>
+          <div className="flex justify-between items-center">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+              Results
+            </h2>
+            <ShareButton mode="compare" results={results} />
+          </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {results.map((result, index) => (
               <div

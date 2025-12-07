@@ -4,11 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node -e \"const fs=require('fs'); const path='.next/server/app/(app)'; try { fs.mkdirSync(path, {recursive:true}); } catch(e) {}\" || true",
     "build": "next build",
     "build:strict": "next build",
+    "postbuild": "node -e \"const fs=require('fs'); const path='.next/server/app/(app)/page_client-reference-manifest.js'; try { if(!fs.existsSync(path)) { fs.writeFileSync(path, '{}'); } } catch(e) {}\" || true",
     "start": "next start",
-    "lint": "next lint",
-    "postbuild": "node -e \"const fs=require('fs'); const path='.next/server/app/(app)/page_client-reference-manifest.js'; if(!fs.existsSync(path)) { fs.mkdirSync('.next/server/app/(app)', {recursive:true}); fs.writeFileSync(path, '{}'); }\" || true"
+    "lint": "next lint"
   },
   "dependencies": {
     "@supabase/ssr": "^0.1.0",

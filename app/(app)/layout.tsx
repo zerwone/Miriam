@@ -2,7 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { CreditsDisplay } from "@/components/CreditsDisplay";
+import { UserMenu } from "@/components/UserMenu";
 import "./app.css";
+
+export const dynamic = "force-dynamic";
 
 function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
   const pathname = usePathname();
@@ -43,10 +47,9 @@ export default function AppLayout({
                 <NavLink href="/app/research">Research</NavLink>
               </div>
             </div>
-            <div className="flex items-center">
-              <div className="text-sm text-gray-500 dark:text-gray-400">
-                Credits: <span className="font-semibold">--</span>
-              </div>
+            <div className="flex items-center gap-4">
+              <CreditsDisplay />
+              <UserMenu />
             </div>
           </div>
         </div>

@@ -3,6 +3,8 @@
 import { useState } from "react";
 import type { CompareResult } from "@/lib/types";
 
+export const dynamic = "force-dynamic";
+
 export default function ComparePage() {
   const [prompt, setPrompt] = useState("");
   const [system, setSystem] = useState("");
@@ -49,11 +51,23 @@ export default function ComparePage() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to compare models");
+        const errorData = await response.json();
+        if (response.status === 402) {
+          // Insufficient credits
+          alert(`Insufficient credits. You need ${errorData.credits_needed || 3} credit(s) to compare ${selectedModels.length} model(s).`);
+        } else {
+          alert(`Error: ${errorData.error || "Failed to compare models"}`);
+        }
+        return;
       }
 
       const data = await response.json();
       setResults(data.results);
+      
+      // Refresh credits display
+      if ((window as any).refreshCredits) {
+        (window as any).refreshCredits();
+      }
     } catch (error: any) {
       console.error("Error:", error);
       alert(`Error: ${error.message}`);

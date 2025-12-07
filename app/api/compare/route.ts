@@ -2,11 +2,29 @@ import { NextRequest, NextResponse } from "next/server";
 import { callOpenRouterChat, normalizeOpenRouterResponse } from "@/lib/openrouter";
 import type { OpenRouterMessage } from "@/lib/openrouter";
 import type { CompareResult } from "@/lib/types";
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { chargeUser } from "@/lib/charge";
 
 export const runtime = "edge";
 
 export async function POST(request: NextRequest) {
   try {
+    const supabase = await createClient();
+
+    // Check authentication
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const {
       prompt,
@@ -34,6 +52,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "Maximum 5 models allowed" },
         { status: 400 }
+      );
+    }
+
+    // Charge credits before making API calls
+    const chargeResult = await chargeUser(user.id, "compare", models.length);
+
+    if (!chargeResult.success) {
+      return NextResponse.json(
+        {
+          error: chargeResult.error || "Insufficient credits",
+          credits_needed: chargeResult.credits_needed,
+          balance: chargeResult.balance,
+        },
+        { status: 402 }
       );
     }
 
@@ -80,6 +112,21 @@ export async function POST(request: NextRequest) {
     });
 
     const results = await Promise.all(promises);
+
+    // Log usage
+    const adminClient = createAdminClient();
+    const creditsSpent = models.length <= 3 ? 3 : 5;
+    const totalTokensIn = results.reduce((sum, r) => sum + r.usage.prompt_tokens, 0);
+    const totalTokensOut = results.reduce((sum, r) => sum + r.usage.completion_tokens, 0);
+
+    await adminClient.from("usage_log").insert({
+      user_id: user.id,
+      mode: "compare",
+      credits_spent: creditsSpent,
+      model_ids_used: models,
+      tokens_in: totalTokensIn,
+      tokens_out: totalTokensOut,
+    });
 
     return NextResponse.json({ results });
   } catch (error: any) {

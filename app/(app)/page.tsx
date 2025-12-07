@@ -3,6 +3,8 @@
 import { useState } from "react";
 import type { ChatMessage } from "@/lib/types";
 
+export const dynamic = "force-dynamic";
+
 export default function MiriamPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -37,7 +39,12 @@ export default function MiriamPage() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to get response");
+        const errorData = await response.json();
+        if (response.status === 402) {
+          // Insufficient credits
+          throw new Error(`Insufficient credits. You need ${errorData.credits_needed || 1} credit(s).`);
+        }
+        throw new Error(errorData.error || "Failed to get response");
       }
 
       const data = await response.json();
@@ -50,6 +57,11 @@ export default function MiriamPage() {
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
+      
+      // Refresh credits display
+      if ((window as any).refreshCredits) {
+        (window as any).refreshCredits();
+      }
     } catch (error: any) {
       console.error("Error:", error);
       const errorMessage: ChatMessage = {

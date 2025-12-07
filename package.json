@@ -4,10 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "node -e \"const fs=require('fs'); const path='.next/server/app/(app)'; try { fs.mkdirSync(path, {recursive:true}); } catch(e) {}\" || true",
-    "build": "next build",
+    "build": "node scripts/vercel-build.js",
     "build:strict": "next build",
-    "postbuild": "node -e \"const fs=require('fs'); const path='.next/server/app/(app)/page_client-reference-manifest.js'; try { if(!fs.existsSync(path)) { fs.writeFileSync(path, '{}'); } } catch(e) {}\" || true",
     "start": "next start",
     "lint": "next lint"
   },

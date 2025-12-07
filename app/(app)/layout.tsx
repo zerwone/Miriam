@@ -45,6 +45,7 @@ export default function AppLayout({
                 <NavLink href="/app/compare">Compare</NavLink>
                 <NavLink href="/app/judge">Judge</NavLink>
                 <NavLink href="/app/research">Research</NavLink>
+                <NavLink href="/app/account">Account</NavLink>
               </div>
             </div>
             <div className="flex items-center gap-4">

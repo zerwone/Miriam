@@ -17,6 +17,12 @@ export default function Home() {
           >
             Get Started
           </Link>
+          <Link
+            href="/pricing"
+            className="px-6 py-3 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+          >
+            View Pricing
+          </Link>
         </div>
       </div>
     </main>

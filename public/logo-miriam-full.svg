@@ -1,0 +1,21 @@
+<svg width="200" height="40" viewBox="0 0 200 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Placeholder: Replace with final logo export -->
+  <!-- Icon: Stylized M with three nodes -->
+  <g>
+    <!-- M outline -->
+    <path d="M8 8 L8 24 L12 20 L16 24 L16 8" stroke="#9D4EDD" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Blue node (left) -->
+    <circle cx="10" cy="14" r="2" fill="#3B82F6"/>
+    <!-- Green node (right) -->
+    <circle cx="14" cy="18" r="2" fill="#22C55E"/>
+    <!-- Purple node (bottom) -->
+    <circle cx="12" cy="22" r="2" fill="#9D4EDD"/>
+  </g>
+  <!-- Wordmark: Miriam Lab -->
+  <text x="28" y="20" font-family="Space Grotesk, sans-serif" font-size="16" font-weight="700" fill="#F9FAFB">
+    Miriam
+  </text>
+  <text x="28" y="20" font-family="Space Grotesk, sans-serif" font-size="16" font-weight="400" fill="#9CA3AF">
+    <tspan x="75" fill="#9CA3AF">Lab</tspan>
+  </text>
+</svg>

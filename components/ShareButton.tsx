@@ -48,14 +48,14 @@ export function ShareButton({ mode, results }: ShareButtonProps) {
           type="text"
           value={shareUrl}
           readOnly
-          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+          className="px-3 py-2 border border-miriam-gray/30 rounded-lg bg-miriam-bgSoft text-miriam-text text-sm"
         />
         <button
           onClick={() => {
             navigator.clipboard.writeText(shareUrl);
             alert("Link copied!");
           }}
-          className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 text-sm"
+          className="px-4 py-2 bg-miriam-bgSoft text-miriam-text rounded-lg hover:bg-miriam-bgSoft/80 text-sm transition-colors"
         >
           Copy
         </button>
@@ -67,7 +67,7 @@ export function ShareButton({ mode, results }: ShareButtonProps) {
     <button
       onClick={handleShare}
       disabled={loading}
-      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium flex items-center gap-2"
+      className="px-4 py-2 bg-miriam-purple text-white rounded-lg hover:bg-miriam-blue disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium flex items-center gap-2"
     >
       {loading ? (
         <>

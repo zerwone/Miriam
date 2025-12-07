@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { CreditsDisplay } from "@/components/CreditsDisplay";
 import { UserMenu } from "@/components/UserMenu";
@@ -17,9 +18,9 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
       href={href}
       className={`${
         isActive
-          ? "border-blue-500 text-gray-900 dark:text-white"
-          : "border-transparent text-gray-500 dark:text-gray-300 hover:border-gray-300 hover:text-gray-700 dark:hover:text-gray-200"
-      } inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}
+          ? "border-miriam-purple text-miriam-text font-semibold"
+          : "border-transparent text-miriam-text/60 hover:border-miriam-gray/50 hover:text-miriam-text/80"
+      } inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium font-heading transition-colors`}
     >
       {children}
     </Link>
@@ -32,13 +33,22 @@ export default function AppLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <nav className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+    <div className="min-h-screen bg-miriam-bg">
+      <nav className="bg-miriam-bg/90 backdrop-blur-sm border-b border-miriam-bgSoft/50 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
-            <div className="flex">
-              <Link href="/app" className="flex items-center px-2 py-4 text-xl font-bold text-gray-900 dark:text-white">
-                Miriam Lab
+            <div className="flex items-center">
+              <Link href="/app" className="flex items-center gap-2 mr-8">
+                <Image
+                  src="/logo-miriam-icon.svg"
+                  alt="Miriam Lab"
+                  width={24}
+                  height={24}
+                  className="w-6 h-6"
+                />
+                <span className="font-heading text-lg font-bold text-miriam-text">
+                  Miriam Lab
+                </span>
               </Link>
               <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
                 <NavLink href="/app">Miriam</NavLink>

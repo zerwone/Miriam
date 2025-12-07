@@ -43,7 +43,7 @@ export function CreditsDisplay({ onUpdate }: CreditsDisplayProps) {
 
   if (loading) {
     return (
-      <div className="text-sm text-gray-500 dark:text-gray-400">
+      <div className="text-sm text-miriam-text/60">
         Credits: <span className="font-semibold">...</span>
       </div>
     );
@@ -51,7 +51,7 @@ export function CreditsDisplay({ onUpdate }: CreditsDisplayProps) {
 
   if (!balance) {
     return (
-      <div className="text-sm text-gray-500 dark:text-gray-400">
+      <div className="text-sm text-miriam-text/60">
         Credits: <span className="font-semibold">--</span>
       </div>
     );
@@ -64,10 +64,10 @@ export function CreditsDisplay({ onUpdate }: CreditsDisplayProps) {
 
   return (
     <div className="flex items-center gap-4">
-      <div className="text-sm text-gray-500 dark:text-gray-400">
-        Credits: <span className="font-semibold text-gray-900 dark:text-white">{total}</span>
+      <div className="text-sm text-miriam-text/60">
+        Credits: <span className="font-semibold text-miriam-text">{total}</span>
         {balance.free_daily_credits_remaining > 0 && (
-          <span className="ml-2 text-xs text-green-600 dark:text-green-400">
+          <span className="ml-2 text-xs text-miriam-green">
             ({balance.free_daily_credits_remaining} free)
           </span>
         )}

@@ -7,7 +7,7 @@ The build was failing with:
 Error: ENOENT: no such file or directory, lstat '/vercel/path0/.next/server/app/(app)/page_client-reference-manifest.js'
 ```
 
-## Root Cause
+## Root Causes
 
 This is a known Next.js 14 issue with route groups `(app)` and client reference manifests during the build trace phase. The actual build completes successfully, but the trace phase fails.
 
